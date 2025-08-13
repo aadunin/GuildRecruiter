@@ -4,6 +4,11 @@ on:
   push:
     tags:
       - "v*"
+  release:
+    types: [published]
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -16,18 +21,53 @@ jobs:
         id: v
         run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
 
+      - name: Debug listing
+        run: |
+          echo "Root:"
+          ls -la
+          if [ -d GuildRecruiter ]; then
+            echo "GuildRecruiter/:"
+            ls -la GuildRecruiter
+          else
+            echo "No GuildRecruiter/ dir"
+          fi
+
       - name: Prepare zip
         run: |
           set -e
           mkdir -p dist
-          zip -r "dist/GuildRecruiter-v${{ steps.v.outputs.version }}.zip" GuildRecruiter -x "*/.git/*"
+          if [ -d GuildRecruiter ]; then
+            echo "Packing existing GuildRecruiter/ directory"
+            zip -r "dist/GuildRecruiter-v${{ steps.v.outputs.version }}.zip" GuildRecruiter -x "*/.git/*"
+          else
+            echo "GuildRecruiter/ not found, creating package from root files"
+            mkdir -p pkg/GuildRecruiter
+            # Добавьте здесь все нужные файлы аддона:
+            cp -f *.toc *.lua pkg/GuildRecruiter/ 2>/dev/null || true
+            if ! ls pkg/GuildRecruiter/*.toc >/dev/null 2>&1; then
+              echo "No TOC found to package. Abort."
+              exit 12
+            fi
+            (cd pkg && zip -r "../dist/GuildRecruiter-v${{ steps.v.outputs.version }}.zip" GuildRecruiter)
+          fi
+          echo "Built archive:"
+          ls -lh dist/
 
       - name: Create GitHub Release
+        if: github.event_name == 'push'  # создание релиза только при пуше тега
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: GuildRecruiter ${{ github.ref_name }}
           draft: false
           prerelease: false
+          files: |
+            dist/GuildRecruiter-v${{ steps.v.outputs.version }}.zip
+
+      # Если релиз опубликован вручную — просто прикрепляем asset
+      - name: Upload asset to manual release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
           files: |
             dist/GuildRecruiter-v${{ steps.v.outputs.version }}.zip
