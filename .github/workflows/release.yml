@@ -15,7 +15,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1 # если захотим git log fallback — ставим 0
+          fetch-depth: 0 # нужно 0, чтобы git log и describe работали корректно
 
       - name: Compute version
         id: v
@@ -52,20 +52,37 @@ jobs:
           echo "Built archive:"
           ls -lh dist/
 
+      - name: Get previous tag
+        id: prevtag
+        run: |
+          prev_tag=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          echo "previous_tag=$prev_tag" >> $GITHUB_OUTPUT
+          echo "Previous tag: $prev_tag"
+
       - name: Generate release notes
         id: notes
         uses: actions/github-script@v7
+        env:
+          PREV_TAG: ${{ steps.prevtag.outputs.previous_tag }}
         with:
           script: |
             const core = require('@actions/core');
             const tag = context.ref.replace('refs/tags/', '');
+            const prevTag = process.env.PREV_TAG || undefined;
             try {
-              const { data } = await github.rest.repos.generateReleaseNotes({
+              const params = {
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 tag_name: tag,
                 target_commitish: process.env.GITHUB_SHA
-              });
+              };
+              if (prevTag) {
+                params.previous_tag_name = prevTag;
+                core.info(`Using previous_tag_name: ${prevTag}`);
+              } else {
+                core.warning('Previous tag not found — letting GitHub auto-detect range');
+              }
+              const { data } = await github.rest.repos.generateReleaseNotes(params);
               const body = (data && data.body && data.body.trim())
                 ? data.body
                 : `### Changes\n- ${tag} released.`;
