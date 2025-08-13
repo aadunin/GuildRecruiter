@@ -115,6 +115,10 @@ SlashCmdList["GR"] = function(msg)
         elseif a == "off" then GR_Settings.skipInInstance = false end
         colored("skipInInstance=" .. tostring(GR_Settings.skipInInstance))
 
+    elseif cmd == "test" then
+        colored("Отправка тестового сообщения...")
+        send()
+        
     else
         print("|cffffff00Использование:|r")
         print("/gr on|off — включить/выключить")
@@ -123,6 +127,7 @@ SlashCmdList["GR"] = function(msg)
         print("/gr chan <TYPE> [id] — канал (SAY/YELL/GUILD/PARTY/RAID/CHANNEL id)")
         print("/gr skipinst on|off — блок в инстансах")
         print("/gr status — показать текущие настройки")
+        print("/gr test — ручная отправка сообщения")
     end
 end
 
