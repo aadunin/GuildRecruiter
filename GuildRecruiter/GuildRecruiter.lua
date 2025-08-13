@@ -62,8 +62,9 @@ frame:SetScript("OnUpdate", function(_, delta)
 end)
 
 -- Commands
-SLASH_GR1 = "/gr"
-SlashCmdList["GR"] = function(msg)
+SLASH_GRU1 = "/gru"
+SlashCmdList["GRU"] = function(msg)
+
     local cmd, a, b = msg:match("^(%S*)%s*(%S*)%s*(.*)$")
     cmd = string.lower(cmd or "")
 
@@ -121,13 +122,13 @@ SlashCmdList["GR"] = function(msg)
         
     else
         print("|cffffff00Использование:|r")
-        print("/gr on|off — включить/выключить")
-        print("/gr msg <текст> — задать сообщение")
-        print("/gr int <сек> — интервал (мин. 120)")
-        print("/gr chan <TYPE> [id] — канал (SAY/YELL/GUILD/PARTY/RAID/CHANNEL id)")
-        print("/gr skipinst on|off — блок в инстансах")
-        print("/gr status — показать текущие настройки")
-        print("/gr test — ручная отправка сообщения")
+        print("/gru on|off — включить/выключить")
+        print("/gru msg <текст> — задать сообщение")
+        print("/gru int <сек> — интервал (мин. 120)")
+        print("/gru chan <TYPE> [id] — канал (SAY/YELL/GUILD/PARTY/RAID/CHANNEL id)")
+        print("/gru skipinst on|off — блок в инстансах")
+        print("/gru status — показать текущие настройки")
+        print("/gru test — ручная отправка сообщения")
     end
 end
 
@@ -135,5 +136,5 @@ end
 local f = CreateFrame("Frame")
 f:RegisterEvent("PLAYER_LOGIN")
 f:SetScript("OnEvent", function()
-    colored("Загружен. /gr для справки.")
+    colored("Загружен. /gru для справки.")
 end)
