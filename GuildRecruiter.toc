@@ -1,0 +1,7 @@
+## Interface: 50400
+## Title: Guild Recruiter
+## Notes: Автоматический рекрутинг для гильдии
+## Author: Alexander
+## Version: 0.1.0
+## SavedVariables: GR_Settings
+GuildRecruiter.lua
