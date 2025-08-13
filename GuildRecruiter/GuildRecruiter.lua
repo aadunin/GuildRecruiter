@@ -40,7 +40,7 @@ local function send()
     local ctype = GR_Settings.channelType
     if ctype == "CHANNEL" then
         if not GR_Settings.channelId then
-            colored("Не задан channelId для CHANNEL. Используйте /gr chan CHANNEL <id>")
+            colored("Не задан channelId для CHANNEL. Используйте  chan CHANNEL <id>")
             return
         end
         SendChatMessage(msg, "CHANNEL", nil, GR_Settings.channelId)
@@ -94,7 +94,7 @@ SlashCmdList["GRU"] = function(msg)
                 GR_Settings.channelId = id
                 colored("Канал: CHANNEL c ID " .. id)
             else
-                colored("Укажите числовой ID для CHANNEL: /gr chan CHANNEL <id>")
+                colored("Укажите числовой ID для CHANNEL: /gru chan CHANNEL <id>")
             end
         elseif ctype ~= "" then
             GR_Settings.channelType = ctype
