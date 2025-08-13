@@ -1,0 +1,42 @@
+name: build-zip
+
+on:
+  workflow_dispatch: # запуск вручную из вкладки Actions
+  push:
+    branches:
+      - main # или любая нужная ветка
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute version
+        id: v
+        run: |
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+          else
+            echo "version=dev-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Prepare zip
+        run: |
+          mkdir -p dist
+          if [ -d GuildRecruiter ]; then
+            zip -r "dist/GuildRecruiter-${{ steps.v.outputs.version }}.zip" GuildRecruiter -x "*/.git/*"
+          else
+            mkdir -p pkg/GuildRecruiter
+            cp -f *.toc *.lua pkg/GuildRecruiter/ 2>/dev/null || true
+            (cd pkg && zip -r "../dist/GuildRecruiter-${{ steps.v.outputs.version }}.zip" GuildRecruiter)
+          fi
+          echo "Built archive:"
+          ls -lh dist/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GuildRecruiter-${{ steps.v.outputs.version }}.zip
+          path: dist/GuildRecruiter-${{ steps.v.outputs.version }}.zip
