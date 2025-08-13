@@ -1,0 +1,33 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute version
+        id: v
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Prepare zip
+        run: |
+          set -e
+          mkdir -p dist
+          zip -r "dist/GuildRecruiter-v${{ steps.v.outputs.version }}.zip" GuildRecruiter -x "*/.git/*"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: GuildRecruiter ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          files: |
+            dist/GuildRecruiter-v${{ steps.v.outputs.version }}.zip
