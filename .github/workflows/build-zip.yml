@@ -4,7 +4,7 @@ on:
   workflow_dispatch: # запуск вручную из вкладки Actions
   push:
     branches:
-      - main # или любая нужная ветка
+      - main # можно поменять под свою ветку
 
 jobs:
   build:
@@ -38,5 +38,6 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GuildRecruiter-${{ steps.v.outputs.version }}.zip
+          # убрали .zip из имени артефакта, чтобы GitHub не создавал ZIP в ZIP
+          name: GuildRecruiter-${{ steps.v.outputs.version }}
           path: dist/GuildRecruiter-${{ steps.v.outputs.version }}.zip
