@@ -4,8 +4,6 @@ on:
   push:
     tags:
       - "v*"
-  release:
-    types: [published]
 
 permissions:
   contents: write
@@ -42,7 +40,6 @@ jobs:
           else
             echo "GuildRecruiter/ not found, creating package from root files"
             mkdir -p pkg/GuildRecruiter
-            # Добавьте здесь все нужные файлы аддона:
             cp -f *.toc *.lua pkg/GuildRecruiter/ 2>/dev/null || true
             if ! ls pkg/GuildRecruiter/*.toc >/dev/null 2>&1; then
               echo "No TOC found to package. Abort."
@@ -53,21 +50,25 @@ jobs:
           echo "Built archive:"
           ls -lh dist/
 
+      - name: Generate release notes
+        id: notes
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data } = await github.rest.repos.generateReleaseNotes({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: context.ref.replace('refs/tags/', ''),
+            });
+            return data.body;
+
       - name: Create GitHub Release
-        if: github.event_name == 'push'  # создание релиза только при пуше тега
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
           name: GuildRecruiter ${{ github.ref_name }}
+          body: ${{ steps.notes.outputs.result }}
           draft: false
           prerelease: false
-          files: |
-            dist/GuildRecruiter-v${{ steps.v.outputs.version }}.zip
-
-      # Если релиз опубликован вручную — просто прикрепляем asset
-      - name: Upload asset to manual release
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
-        with:
           files: |
             dist/GuildRecruiter-v${{ steps.v.outputs.version }}.zip
