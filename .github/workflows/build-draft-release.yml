@@ -1,10 +1,10 @@
-name: build-zip
+name: build-draft-release
 
 on:
   workflow_dispatch: # запуск вручную из вкладки Actions
-  push:
-    branches:
-      - main # можно поменять под свою ветку
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -16,10 +16,12 @@ jobs:
       - name: Compute version
         id: v
         run: |
+          # Если запуск с уже созданным тегом — используем его
           if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
             echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
           else
-            echo "version=dev-${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+            # Если тега нет — берём версию руками (можно указать при запуске как input)
+            echo "version=0.1.0" >> $GITHUB_OUTPUT
           fi
 
       - name: Prepare zip
@@ -35,9 +37,12 @@ jobs:
           echo "Built archive:"
           ls -lh dist/
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Create or update draft release
+        uses: softprops/action-gh-release@v2
         with:
-          # убрали .zip из имени артефакта, чтобы GitHub не создавал ZIP в ZIP
-          name: GuildRecruiter-${{ steps.v.outputs.version }}
-          path: dist/GuildRecruiter-${{ steps.v.outputs.version }}.zip
+          tag_name: v${{ steps.v.outputs.version }}
+          name: GuildRecruiter v${{ steps.v.outputs.version }}
+          draft: true
+          prerelease: false
+          files: |
+            dist/GuildRecruiter-${{ steps.v.outputs.version }}.zip
