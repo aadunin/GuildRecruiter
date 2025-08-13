@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1 # если захотим git log fallback — ставим 0
 
       - name: Compute version
         id: v
@@ -55,12 +57,26 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const { data } = await github.rest.repos.generateReleaseNotes({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: context.ref.replace('refs/tags/', ''),
-            });
-            return data.body;
+            const core = require('@actions/core');
+            const tag = context.ref.replace('refs/tags/', '');
+            try {
+              const { data } = await github.rest.repos.generateReleaseNotes({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag_name: tag,
+                target_commitish: process.env.GITHUB_SHA
+              });
+              const body = (data && data.body && data.body.trim())
+                ? data.body
+                : `### Changes\n- ${tag} released.`;
+              core.info(`Generated notes (preview): ${body.slice(0, 200).replace(/\\n/g, ' ')}`);
+              return body;
+            } catch (e) {
+              core.warning(`generateReleaseNotes failed: ${e.message}`);
+              const fallback = `### Changes\n- ${tag} released.`;
+              core.info(`Using fallback notes: ${fallback}`);
+              return fallback;
+            }
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -70,5 +86,6 @@ jobs:
           body: ${{ steps.notes.outputs.result }}
           draft: false
           prerelease: false
+          generate_release_notes: false
           files: |
             dist/GuildRecruiter-v${{ steps.v.outputs.version }}.zip
