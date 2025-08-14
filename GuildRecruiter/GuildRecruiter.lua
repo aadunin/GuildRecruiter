@@ -1,18 +1,24 @@
 -- Saved variables (per account)
 GR_Settings = GR_Settings or {
     message = "🌟 Гильдия <Название> набирает игроков! Пишите /w для деталей.",
-    channelType = "SAY",   -- SAY, YELL, GUILD, PARTY, RAID, CHANNEL
-    channelId = nil,       -- для CHANNEL (числовой ID)
-    randomize = false,     -- true — брать случайный шаблон
-    templates = {}         -- массив строк для randomize
+    channelType = "SAY", -- SAY, YELL, GUILD, PARTY, RAID, CHANNEL
+    channelId = nil,     -- для CHANNEL (числовой ID)
+    randomize = false,   -- true — брать случайный шаблон
+    templates = {}       -- массив строк для randomize
 }
 
-local function colored(msg)
-    print("|cff00ff00[GR]|r " .. msg)
-end
+local function colored(msg) print("|cff00ff00[GR]|r " .. msg) end
+local function trim(s) return (s or ""):gsub("^%s+", ""):gsub("%s+$", "") end
 
-local function trim(s)
-    return (s or ""):gsub("^%s+", ""):gsub("%s+$", "")
+-- 🔹 Нормализация имени канала для сравнения
+local function normalizeChannelName(name)
+    return string.lower(
+        (name or "")
+        :gsub("|c%x%x%x%x%x%x%x%x", "") -- убрать цветовые коды
+        :gsub("|r", "")
+        :gsub("^%s+", "")
+        :gsub("%s+$", "")
+    )
 end
 
 local function pickMessage()
@@ -25,7 +31,6 @@ end
 local function send()
     local msg = pickMessage()
     local ctype = GR_Settings.channelType
-
     if ctype == "CHANNEL" then
         if not GR_Settings.channelId then
             colored("Не задан channelId для CHANNEL. Используйте: /gru chan CHANNEL <id|name>")
@@ -58,18 +63,16 @@ SlashCmdList["GRU"] = function(msg)
             if b ~= "" then
                 local id = tonumber(b)
                 if id then
-                    -- Пользователь ввёл ID напрямую
                     GR_Settings.channelType = "CHANNEL"
                     GR_Settings.channelId = id
                     colored("Канал: CHANNEL с ID " .. id)
                 else
-                    -- Пользователь ввёл имя канала
                     local _, name
                     local chanList = {GetChannelList()}
                     for i = 1, #chanList, 2 do
                         local chanId, chanName = chanList[i], chanList[i+1]
-                        if chanName and string.lower(chanName) == string.lower(b) then
-                            id, name = chanId, chanName
+                        if chanName and normalizeChannelName(chanName) == normalizeChannelName(b) then
+                            id, name = chanId, chanName -- ❗ сохраняем правильное форматирование
                             break
                         end
                     end
@@ -84,18 +87,22 @@ SlashCmdList["GRU"] = function(msg)
             else
                 colored("Укажите ID или имя канала: /gru chan CHANNEL <id|name>")
             end
+
         elseif ctype ~= "" then
             GR_Settings.channelType = ctype
             GR_Settings.channelId = nil
             colored("Канал: " .. ctype)
         else
             colored("Текущий канал: " .. tostring(GR_Settings.channelType) ..
-                (GR_Settings.channelId and (" ("..GR_Settings.channelId..")") or ""))
+                (GR_Settings.channelId and (" (" .. GR_Settings.channelId .. ")") or ""))
         end
 
     elseif cmd == "random" then
-        if a == "on" then GR_Settings.randomize = true
-        elseif a == "off" then GR_Settings.randomize = false end
+        if a == "on" then
+            GR_Settings.randomize = true
+        elseif a == "off" then
+            GR_Settings.randomize = false
+        end
         colored("randomize=" .. tostring(GR_Settings.randomize))
 
     elseif cmd == "addtmpl" then
@@ -115,7 +122,7 @@ SlashCmdList["GRU"] = function(msg)
         colored(string.format(
             "channel=%s%s, randomize=%s, templates=%d",
             tostring(GR_Settings.channelType),
-            GR_Settings.channelId and ("("..GR_Settings.channelId..")") or "",
+            GR_Settings.channelId and ("(" .. GR_Settings.channelId .. ")") or "",
             tostring(GR_Settings.randomize),
             #GR_Settings.templates
         ))
