@@ -1,18 +1,11 @@
 -- Saved variables (per account)
 GR_Settings = GR_Settings or {
-    enabled = false,
     message = "🌟 Гильдия <Название> набирает игроков! Пишите /w для деталей.",
     channelType = "SAY",   -- SAY, YELL, GUILD, PARTY, RAID, CHANNEL
     channelId = nil,       -- для CHANNEL (числовой ID)
-    interval = 300,        -- сек, минимум 120
-    skipInInstance = true, -- не отправлять в инстансах
-    randomize = false,     -- если будет несколько сообщений
+    randomize = false,     -- если есть шаблоны
     templates = {}         -- массив строк для randomize
 }
-
-local addonName = "GuildRecruiter"
-local elapsed = 0
-local MIN_INTERVAL = 120
 
 local function colored(msg)
     print("|cff00ff00[GR]|r " .. msg)
@@ -25,22 +18,13 @@ local function pickMessage()
     return GR_Settings.message
 end
 
-local function canAnnounce()
-    if GR_Settings.skipInInstance then
-        local inInstance = IsInInstance()
-        if inInstance then return false end
-    end
-    if UnitIsAFK("player") then return false end
-    return true
-end
-
 local function send()
-    if not canAnnounce() then return end
     local msg = pickMessage()
     local ctype = GR_Settings.channelType
+
     if ctype == "CHANNEL" then
         if not GR_Settings.channelId then
-            colored("Не задан channelId для CHANNEL. Используйте  chan CHANNEL <id>")
+            colored("Не задан channelId для CHANNEL. Используйте: /gru chan CHANNEL <id>")
             return
         end
         SendChatMessage(msg, "CHANNEL", nil, GR_Settings.channelId)
@@ -49,41 +33,15 @@ local function send()
     end
 end
 
--- OnUpdate timer
-local frame = CreateFrame("Frame")
-frame:SetScript("OnUpdate", function(_, delta)
-    if not GR_Settings.enabled then return end
-    elapsed = elapsed + delta
-    local interval = math.max(MIN_INTERVAL, tonumber(GR_Settings.interval) or MIN_INTERVAL)
-    if elapsed >= interval then
-        send()
-        elapsed = 0
-    end
-end)
-
--- Commands
+-- Slash-команды
 SLASH_GRU1 = "/gru"
 SlashCmdList["GRU"] = function(msg)
-
     local cmd, a, b = msg:match("^(%S*)%s*(%S*)%s*(.*)$")
     cmd = string.lower(cmd or "")
 
-    if cmd == "on" then
-        GR_Settings.enabled = true
-        colored("Автоматический рекрутинг ВКЛ")
-        elapsed = 0
-
-    elseif cmd == "off" then
-        GR_Settings.enabled = false
-        colored("Автоматический рекрутинг ВЫКЛ")
-
-    elseif cmd == "msg" and b ~= "" then
+    if cmd == "msg" and b ~= "" then
         GR_Settings.message = msg:sub(5):gsub("^%s+", "")
         colored("Сообщение изменено")
-
-    elseif cmd == "int" and tonumber(a) then
-        GR_Settings.interval = tonumber(a)
-        colored("Интервал: " .. GR_Settings.interval .. " сек (мин. " .. MIN_INTERVAL .. ")")
 
     elseif cmd == "chan" then
         local ctype = string.upper(a or "")
@@ -92,43 +50,53 @@ SlashCmdList["GRU"] = function(msg)
             if id then
                 GR_Settings.channelType = "CHANNEL"
                 GR_Settings.channelId = id
-                colored("Канал: CHANNEL c ID " .. id)
+                colored("Канал: CHANNEL с ID " .. id)
             else
-                colored("Укажите числовой ID для CHANNEL: /gru chan CHANNEL <id>")
+                colored("Укажите числовой ID: /gru chan CHANNEL <id>")
             end
         elseif ctype ~= "" then
             GR_Settings.channelType = ctype
             GR_Settings.channelId = nil
             colored("Канал: " .. ctype)
         else
-            colored("Текущий канал: " .. GR_Settings.channelType .. (GR_Settings.channelId and (" ("..GR_Settings.channelId..")") or ""))
+            colored("Текущий канал: " .. tostring(GR_Settings.channelType) ..
+                (GR_Settings.channelId and (" ("..GR_Settings.channelId..")") or ""))
         end
 
+    elseif cmd == "random" then
+        if a == "on" then GR_Settings.randomize = true
+        elseif a == "off" then GR_Settings.randomize = false end
+        colored("randomize=" .. tostring(GR_Settings.randomize))
+
+    elseif cmd == "addtmpl" and b ~= "" then
+        table.insert(GR_Settings.templates, b)
+        colored("Шаблон добавлен. Всего: " .. #GR_Settings.templates)
+
+    elseif cmd == "clrtmpl" then
+        GR_Settings.templates = {}
+        colored("Шаблоны очищены")
+
     elseif cmd == "status" then
-        colored(string.format("enabled=%s, interval=%s, channel=%s%s",
-            tostring(GR_Settings.enabled),
-            tostring(GR_Settings.interval),
+        colored(string.format(
+            "channel=%s%s, randomize=%s, templates=%d",
             tostring(GR_Settings.channelType),
-            GR_Settings.channelId and ("("..GR_Settings.channelId..")") or ""))
+            GR_Settings.channelId and ("("..GR_Settings.channelId..")") or "",
+            tostring(GR_Settings.randomize),
+            #GR_Settings.templates
+        ))
 
-    elseif cmd == "skipinst" then
-        if a == "on" then GR_Settings.skipInInstance = true
-        elseif a == "off" then GR_Settings.skipInInstance = false end
-        colored("skipInInstance=" .. tostring(GR_Settings.skipInInstance))
-
-    elseif cmd == "test" then
-        colored("Отправка тестового сообщения...")
+    elseif cmd == "send" then
         send()
-        
+
     else
         print("|cffffff00Использование:|r")
-        print("/gru on|off — включить/выключить")
         print("/gru msg <текст> — задать сообщение")
-        print("/gru int <сек> — интервал (мин. 120)")
         print("/gru chan <TYPE> [id] — канал (SAY/YELL/GUILD/PARTY/RAID/CHANNEL id)")
-        print("/gru skipinst on|off — блок в инстансах")
-        print("/gru status — показать текущие настройки")
-        print("/gru test — ручная отправка сообщения")
+        print("/gru random on|off — включить/выключить рандомизацию")
+        print("/gru addtmpl <текст> — добавить шаблон")
+        print("/gru clrtmpl — очистить шаблоны")
+        print("/gru status — текущие настройки")
+        print("/gru send — отправить сообщение вручную")
     end
 end
 
@@ -136,5 +104,5 @@ end
 local f = CreateFrame("Frame")
 f:RegisterEvent("PLAYER_LOGIN")
 f:SetScript("OnEvent", function()
-    colored("Загружен. /gru для справки.")
+    colored("Загружен. /gru для справки. Авто-таймеров нет, используйте /gru send.")
 end)
