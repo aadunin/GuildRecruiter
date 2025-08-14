@@ -1,5 +1,5 @@
 -- ==============================
--- GuildRecruiter — Оптимизированная версия
+-- GuildRecruiter — Версия 2.0
 -- ==============================
 
 -- Saved variables (per account)
@@ -9,6 +9,26 @@ GR_Settings = GR_Settings or {
     channelId   = nil,       -- для CHANNEL (числовой ID)
     randomize   = false,     -- true — брать случайный шаблон
     templates   = {}         -- массив строк для randomize
+}
+
+-- ==== Локализация/сообщения ====
+local MSG = {
+    msg_changed        = "Сообщение изменено",
+    msg_need_text      = "Укажите текст: /gru msg <текст>",
+    channel_set        = "Канал: %s",
+    channel_current    = "Текущий канал: %s",
+    channel_need_input = "Укажите ID или имя канала: /gru chan CHANNEL <id|name>",
+    channel_not_found  = "Канал '%s' не найден. Сначала присоединитесь: /join %s",
+    channel_id_not_found = "Канал с ID %d не найден.",
+    random_state       = "randomize=%s, шаблонов: %d",
+    tmpl_added         = "Шаблон добавлен. Всего: %d",
+    tmpl_need_text     = "Укажите текст шаблона: /gru addtmpl <текст>",
+    tmpl_cleared       = "Шаблоны очищены",
+    no_channels        = "Вы не подключены ни к одному пользовательскому каналу.",
+    channels_list      = "Список каналов:",
+    no_channel_id      = "Не задан channelId для CHANNEL. Используйте: /gru chan CHANNEL <id|name>",
+    send_done          = "Сообщение отправлено в %s",
+    random_empty_warn  = "Включена рандомизация, но шаблонов нет — отключено.",
 }
 
 -- ==== Утилиты ====
@@ -23,14 +43,13 @@ end
 local function normalizeChannelName(name)
     local s = (name ~= nil) and tostring(name) or ""
     return string.lower(
-        s:gsub("|c%x%x%x%x%x%x%x%x", "") -- убрать цветовые коды
+        s:gsub("|c%x%x%x%x%x%x%x%x", "")
          :gsub("|r", "")
          :gsub("^%s+", "")
          :gsub("%s+$", "")
     )
 end
 
--- Универсальный обход каналов
 local function iterateChannels(callback)
     local chanList = { GetChannelList() }
     local i = 1
@@ -47,10 +66,40 @@ local function iterateChannels(callback)
     end
 end
 
+-- Конкатенация аргументов команды
+local function concatArgs(a, b)
+    return trim((a or "") .. (b ~= "" and (" " .. b) or ""))
+end
+
+-- Универсальный поиск канала
+local function findChannel(input)
+    local id = tonumber(input)
+    if id then
+        local exists
+        iterateChannels(function(chanId)
+            if chanId == id then exists = true return true end
+        end)
+        return exists and id or nil
+    else
+        local foundId
+        iterateChannels(function(chanId, chanName)
+            if normalizeChannelName(chanName) == normalizeChannelName(input) then
+                foundId = chanId return true
+            end
+        end)
+        return foundId
+    end
+end
+
 -- ==== Логика ====
 local function pickMessage()
-    if GR_Settings.randomize and #GR_Settings.templates > 0 then
-        return GR_Settings.templates[math.random(#GR_Settings.templates)]
+    if GR_Settings.randomize then
+        if #GR_Settings.templates > 0 then
+            return GR_Settings.templates[math.random(#GR_Settings.templates)]
+        else
+            GR_Settings.randomize = false
+            colored(MSG.random_empty_warn)
+        end
     end
     return GR_Settings.message
 end
@@ -59,12 +108,24 @@ local function send()
     local msg = pickMessage()
     if GR_Settings.channelType == "CHANNEL" then
         if not GR_Settings.channelId then
-            return colored("Не задан channelId для CHANNEL. Используйте: /gru chan CHANNEL <id|name>")
+            return colored(MSG.no_channel_id)
         end
         SendChatMessage(msg, "CHANNEL", nil, GR_Settings.channelId)
+        colored(string.format(MSG.send_done, "CHANNEL("..GR_Settings.channelId..")"))
     else
         SendChatMessage(msg, GR_Settings.channelType)
+        colored(string.format(MSG.send_done, GR_Settings.channelType))
     end
+end
+
+local function printStatus()
+    print("|cffffff00Текущие настройки:|r")
+    print(string.format("  Канал: %s%s",
+        tostring(GR_Settings.channelType),
+        GR_Settings.channelId and (" ("..GR_Settings.channelId..")") or ""))
+    print("  Рандомизация:", GR_Settings.randomize and "вкл." or "выкл.")
+    print("  Шаблонов:", #GR_Settings.templates)
+    print("  Сообщение:", GR_Settings.message)
 end
 
 local function printHelp()
@@ -86,12 +147,12 @@ SlashCmdList["GRU"] = function(msg)
     cmd = string.lower(cmd or "")
 
     if cmd == "msg" then
-        local text = trim((a or "") .. (b ~= "" and (" " .. b) or ""))
+        local text = concatArgs(a, b)
         if text ~= "" then
             GR_Settings.message = text
-            colored("Сообщение изменено")
+            colored(MSG.msg_changed)
         else
-            colored("Укажите текст: /gru msg <текст>")
+            colored(MSG.msg_need_text)
         end
 
     elseif cmd == "chan" then
@@ -99,45 +160,29 @@ SlashCmdList["GRU"] = function(msg)
         if ctype == "CHANNEL" then
             local input = trim(b)
             if input == "" then
-                return colored("Укажите ID или имя канала: /gru chan CHANNEL <id|name>")
+                return colored(MSG.channel_need_input)
             end
-            local id = tonumber(input)
+            local id = findChannel(input)
             if id then
-                -- Проверим, есть ли такой канал
-                local exists
-                iterateChannels(function(chanId)
-                    if chanId == id then exists = true return true end
-                end)
-                if exists then
-                    GR_Settings.channelType = "CHANNEL"
-                    GR_Settings.channelId = id
-                    colored("Канал: CHANNEL с ID " .. id)
-                else
-                    colored("Канал с ID " .. id .. " не найден.")
-                end
+                GR_Settings.channelType = "CHANNEL"
+                GR_Settings.channelId = id
+                colored(string.format(MSG.channel_set, "CHANNEL ("..id..")"))
             else
-                local foundId, foundName
-                iterateChannels(function(chanId, chanName)
-                    if normalizeChannelName(chanName) == normalizeChannelName(input) then
-                        foundId, foundName = chanId, chanName
-                        return true
-                    end
-                end)
-                if foundId then
-                    GR_Settings.channelType = "CHANNEL"
-                    GR_Settings.channelId = foundId
-                    colored(string.format("Канал: CHANNEL «%s» с ID %d", foundName, foundId))
+                if tonumber(input) then
+                    colored(string.format(MSG.channel_id_not_found, tonumber(input)))
                 else
-                    colored("Канал '" .. input .. "' не найден. Сначала присоединитесь: /join " .. input)
+                    colored(string.format(MSG.channel_not_found, input, input))
                 end
             end
         elseif ctype ~= "" then
             GR_Settings.channelType = ctype
             GR_Settings.channelId = nil
-            colored("Канал: " .. ctype)
+            colored(string.format(MSG.channel_set, ctype))
         else
-            colored("Текущий канал: " .. tostring(GR_Settings.channelType) ..
-                (GR_Settings.channelId and (" (" .. GR_Settings.channelId .. ")") or ""))
+            colored(string.format(MSG.channel_current,
+                tostring(GR_Settings.channelType) ..
+                (GR_Settings.channelId and (" ("..GR_Settings.channelId..")") or "")
+            ))
         end
 
     elseif cmd == "random" then
@@ -146,30 +191,29 @@ SlashCmdList["GRU"] = function(msg)
         elseif a == "off" then
             GR_Settings.randomize = false
         end
-        colored("randomize=" .. tostring(GR_Settings.randomize) ..
-                ", шаблонов: " .. #GR_Settings.templates)
+        colored(string.format(MSG.random_state, tostring(GR_Settings.randomize), #GR_Settings.templates))
 
     elseif cmd == "addtmpl" then
-        local text = trim((a or "") .. (b ~= "" and (" " .. b) or ""))
+        local text = concatArgs(a, b)
         if text ~= "" then
+            -- защита от дубликатов
+            for _, tmpl in ipairs(GR_Settings.templates) do
+                if tmpl == text then
+                    return colored("Такой шаблон уже есть")
+                end
+            end
             table.insert(GR_Settings.templates, text)
-            colored("Шаблон добавлен. Всего: " .. #GR_Settings.templates)
+            colored(string.format(MSG.tmpl_added, #GR_Settings.templates))
         else
-            colored("Укажите текст шаблона: /gru addtmpl <текст>")
+            colored(MSG.tmpl_need_text)
         end
 
     elseif cmd == "clrtmpl" then
         GR_Settings.templates = {}
-        colored("Шаблоны очищены")
+        colored(MSG.tmpl_cleared)
 
     elseif cmd == "status" then
-        colored(string.format(
-            "channel=%s%s, randomize=%s, templates=%d",
-            tostring(GR_Settings.channelType),
-            GR_Settings.channelId and ("(" .. GR_Settings.channelId .. ")") or "",
-            tostring(GR_Settings.randomize),
-            #GR_Settings.templates
-        ))
+        printStatus()
 
     elseif cmd == "send" then
         send()
@@ -177,11 +221,11 @@ SlashCmdList["GRU"] = function(msg)
     elseif cmd == "listchannels" then
         local empty = true
         iterateChannels(function(chanId, chanName)
-            if empty then colored("Список каналов:") empty = false end
+            if empty then colored(MSG.channels_list) empty = false end
             print(string.format("[%d] %s", chanId, chanName))
         end)
         if empty then
-            colored("Вы не подключены ни к одному пользовательскому каналу.")
+            colored(MSG.no_channels)
         end
 
     else
@@ -191,7 +235,4 @@ end
 
 -- ==== При входе в игру ====
 local f = CreateFrame("Frame")
-f:RegisterEvent("PLAYER_LOGIN")
-f:SetScript("OnEvent", function()
-    colored("Загружен. /gru для справки.")
-end)
+f:RegisterEvent("PLAYER_LOGIN
