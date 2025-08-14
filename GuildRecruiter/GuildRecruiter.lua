@@ -235,4 +235,7 @@ end
 
 -- ==== При входе в игру ====
 local f = CreateFrame("Frame")
-f:RegisterEvent("PLAYER_LOGIN
+f:RegisterEvent("PLAYER_LOGIN")
+f:SetScript("OnEvent", function()
+    colored("Загружен. /gru для справки.")
+end)
