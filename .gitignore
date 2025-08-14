@@ -1,49 +1,43 @@
-# -------------------------
-# OS / системные файлы
-# -------------------------
-.DS_Store
-Thumbs.db
-ehthumbs.db
-Icon?
+# ========== World of Warcraft ==========
+WTF/
+Cache/
+Logs/
+Screenshots/
 
-# -------------------------
-# IDE / редакторы
-# -------------------------
-.vscode/
-.idea/
-*.sublime-project
-*.sublime-workspace
-
-# -------------------------
-# Git / CI / рабочие файлы
-# -------------------------
-*.log
-*.tmp
-*.temp
+# SavedVariables
+SavedVariables/
+*.lua.bak
 *.bak
 
-# -------------------------
-# Сборка / релизы
-# -------------------------
+# ========== Сборка и релизы ==========
 dist/
+build/
+release/
+releases/
 *.zip
-*.rar
-*.7z
 
-# -------------------------
-# Кэш и бэкапы
-# -------------------------
-*~
+# ========== IDE/OS-мусор ==========
+.DS_Store
+Thumbs.db
+desktop.ini
+Icon?
 *.swp
 *.swo
+*.tmp
+*.temp
+*.orig
+*.rej
+*~
+*.code-workspace
+.idea/
+.vscode/
 
-# -------------------------
-# WoW аддоны (не версионируем чужие)
-# -------------------------
-_*/Interface/AddOns/*
-!GuildRecruiter/**
+# ========== Lua/инструменты ==========
+luac.out
+*.luac
 
-# -------------------------
-# Windows installer traces
-# -------------------------
-Desktop.ini
+# ========== Тестовые артефакты ==========
+coverage/
+.junit/
+junit.xml
+test-output/
