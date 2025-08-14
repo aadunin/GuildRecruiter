@@ -3,7 +3,7 @@ GR_Settings = GR_Settings or {
     message = "🌟 Гильдия <Название> набирает игроков! Пишите /w для деталей.",
     channelType = "SAY",   -- SAY, YELL, GUILD, PARTY, RAID, CHANNEL
     channelId = nil,       -- для CHANNEL (числовой ID)
-    randomize = false,     -- если есть шаблоны
+    randomize = false,     -- true — брать случайный шаблон
     templates = {}         -- массив строк для randomize
 }
 
@@ -24,7 +24,7 @@ local function send()
 
     if ctype == "CHANNEL" then
         if not GR_Settings.channelId then
-            colored("Не задан channelId для CHANNEL. Используйте: /gru chan CHANNEL <id>")
+            colored("Не задан channelId для CHANNEL. Используйте: /gru chan CHANNEL <id|name>")
             return
         end
         SendChatMessage(msg, "CHANNEL", nil, GR_Settings.channelId)
@@ -46,13 +46,34 @@ SlashCmdList["GRU"] = function(msg)
     elseif cmd == "chan" then
         local ctype = string.upper(a or "")
         if ctype == "CHANNEL" then
-            local id = tonumber(b)
-            if id then
-                GR_Settings.channelType = "CHANNEL"
-                GR_Settings.channelId = id
-                colored("Канал: CHANNEL с ID " .. id)
+            if b ~= "" then
+                local id = tonumber(b)
+                if id then
+                    -- Пользователь ввёл ID напрямую
+                    GR_Settings.channelType = "CHANNEL"
+                    GR_Settings.channelId = id
+                    colored("Канал: CHANNEL с ID " .. id)
+                else
+                    -- Пользователь ввёл имя канала
+                    local _, name
+                    local chanList = {GetChannelList()}
+                    for i = 1, #chanList, 2 do
+                        local chanId, chanName = chanList[i], chanList[i+1]
+                        if chanName and string.lower(chanName) == string.lower(b) then
+                            id, name = chanId, chanName
+                            break
+                        end
+                    end
+                    if id then
+                        GR_Settings.channelType = "CHANNEL"
+                        GR_Settings.channelId = id
+                        colored(string.format("Канал: CHANNEL «%s» с ID %d", name, id))
+                    else
+                        colored("Канал '" .. b .. "' не найден. Сначала присоединитесь: /join " .. b)
+                    end
+                end
             else
-                colored("Укажите числовой ID: /gru chan CHANNEL <id>")
+                colored("Укажите ID или имя канала: /gru chan CHANNEL <id|name>")
             end
         elseif ctype ~= "" then
             GR_Settings.channelType = ctype
@@ -91,7 +112,7 @@ SlashCmdList["GRU"] = function(msg)
     else
         print("|cffffff00Использование:|r")
         print("/gru msg <текст> — задать сообщение")
-        print("/gru chan <TYPE> [id] — канал (SAY/YELL/GUILD/PARTY/RAID/CHANNEL id)")
+        print("/gru chan <TYPE> [id|name] — канал (SAY/YELL/GUILD/PARTY/RAID/CHANNEL)")
         print("/gru random on|off — включить/выключить рандомизацию")
         print("/gru addtmpl <текст> — добавить шаблон")
         print("/gru clrtmpl — очистить шаблоны")
