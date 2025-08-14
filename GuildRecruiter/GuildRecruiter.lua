@@ -10,14 +10,14 @@ GR_Settings = GR_Settings or {
 local function colored(msg) print("|cff00ff00[GR]|r " .. msg) end
 local function trim(s) return (s or ""):gsub("^%s+", ""):gsub("%s+$", "") end
 
--- 🔹 Нормализация имени канала для сравнения
+-- Нормализация имени канала для сравнения (безопасно для любых типов)
 local function normalizeChannelName(name)
+    local s = (name ~= nil) and tostring(name) or ""
     return string.lower(
-        (name or "")
-        :gsub("|c%x%x%x%x%x%x%x%x", "") -- убрать цветовые коды
-        :gsub("|r", "")
-        :gsub("^%s+", "")
-        :gsub("%s+$", "")
+        s:gsub("|c%x%x%x%x%x%x%x%x", "") -- убрать цветовые коды
+         :gsub("|r", "")
+         :gsub("^%s+", "")
+         :gsub("%s+$", "")
     )
 end
 
@@ -61,27 +61,42 @@ SlashCmdList["GRU"] = function(msg)
         local ctype = string.upper(a or "")
         if ctype == "CHANNEL" then
             if b ~= "" then
-                local id = tonumber(b)
+                local input = trim(b)
+                local id = tonumber(input)
                 if id then
+                    -- Пользователь ввёл ID напрямую
                     GR_Settings.channelType = "CHANNEL"
                     GR_Settings.channelId = id
                     colored("Канал: CHANNEL с ID " .. id)
                 else
-                    local _, name
-                    local chanList = {GetChannelList()}
-                    for i = 1, #chanList, 2 do
-                        local chanId, chanName = chanList[i], chanList[i+1]
-                        if chanName and normalizeChannelName(chanName) == normalizeChannelName(b) then
-                            id, name = chanId, chanName -- ❗ сохраняем правильное форматирование
-                            break
+                    -- Пользователь ввёл имя канала — ищем по списку
+                    local foundId, foundName
+                    local chanList = { GetChannelList() }
+                    -- Универсальный проход: учитываем схему (id, name, disabled)
+                    local i = 1
+                    while i <= #chanList do
+                        local chanId   = chanList[i]
+                        local chanName = chanList[i + 1]
+                        local maybeFlg = chanList[i + 2]
+                        if type(chanId) == "number" and type(chanName) == "string" then
+                            if normalizeChannelName(chanName) == normalizeChannelName(input) then
+                                foundId, foundName = chanId, chanName -- сохраняем корректное написание
+                                break
+                            end
+                        end
+                        if type(maybeFlg) == "boolean" then
+                            i = i + 3
+                        else
+                            i = i + 2
                         end
                     end
-                    if id then
+
+                    if foundId then
                         GR_Settings.channelType = "CHANNEL"
-                        GR_Settings.channelId = id
-                        colored(string.format("Канал: CHANNEL «%s» с ID %d", name, id))
+                        GR_Settings.channelId = foundId
+                        colored(string.format("Канал: CHANNEL «%s» с ID %d", foundName, foundId))
                     else
-                        colored("Канал '" .. b .. "' не найден. Сначала присоединитесь: /join " .. b)
+                        colored("Канал '" .. input .. "' не найден. Сначала присоединитесь: /join " .. input)
                     end
                 end
             else
