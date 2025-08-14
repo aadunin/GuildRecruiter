@@ -64,15 +64,12 @@ SlashCmdList["GRU"] = function(msg)
                 local input = trim(b)
                 local id = tonumber(input)
                 if id then
-                    -- Пользователь ввёл ID напрямую
                     GR_Settings.channelType = "CHANNEL"
                     GR_Settings.channelId = id
                     colored("Канал: CHANNEL с ID " .. id)
                 else
-                    -- Пользователь ввёл имя канала — ищем по списку
                     local foundId, foundName
                     local chanList = { GetChannelList() }
-                    -- Универсальный проход: учитываем схему (id, name, disabled)
                     local i = 1
                     while i <= #chanList do
                         local chanId   = chanList[i]
@@ -80,7 +77,7 @@ SlashCmdList["GRU"] = function(msg)
                         local maybeFlg = chanList[i + 2]
                         if type(chanId) == "number" and type(chanName) == "string" then
                             if normalizeChannelName(chanName) == normalizeChannelName(input) then
-                                foundId, foundName = chanId, chanName -- сохраняем корректное написание
+                                foundId, foundName = chanId, chanName
                                 break
                             end
                         end
@@ -145,6 +142,28 @@ SlashCmdList["GRU"] = function(msg)
     elseif cmd == "send" then
         send()
 
+    elseif cmd == "listchannels" then
+        local chanList = { GetChannelList() }
+        if #chanList == 0 then
+            colored("Вы не подключены ни к одному пользовательскому каналу.")
+            return
+        end
+        colored("Список каналов:")
+        local i = 1
+        while i <= #chanList do
+            local chanId   = chanList[i]
+            local chanName = chanList[i + 1]
+            local maybeFlg = chanList[i + 2]
+            if type(chanId) == "number" and type(chanName) == "string" then
+                print(string.format("[%d] %s", chanId, chanName))
+            end
+            if type(maybeFlg) == "boolean" then
+                i = i + 3
+            else
+                i = i + 2
+            end
+        end
+
     else
         print("|cffffff00Использование:|r")
         print("/gru msg <текст> — задать сообщение")
@@ -154,6 +173,7 @@ SlashCmdList["GRU"] = function(msg)
         print("/gru clrtmpl — очистить шаблоны")
         print("/gru status — текущие настройки")
         print("/gru send — отправить сообщение вручную")
+        print("/gru listchannels — показать список подключённых каналов")
     end
 end
 
