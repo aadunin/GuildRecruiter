@@ -11,6 +11,10 @@ local function colored(msg)
     print("|cff00ff00[GR]|r " .. msg)
 end
 
+local function trim(s)
+    return (s or ""):gsub("^%s+", ""):gsub("%s+$", "")
+end
+
 local function pickMessage()
     if GR_Settings.randomize and type(GR_Settings.templates) == "table" and #GR_Settings.templates > 0 then
         return GR_Settings.templates[math.random(#GR_Settings.templates)]
@@ -39,9 +43,14 @@ SlashCmdList["GRU"] = function(msg)
     local cmd, a, b = msg:match("^(%S*)%s*(%S*)%s*(.*)$")
     cmd = string.lower(cmd or "")
 
-    if cmd == "msg" and b ~= "" then
-        GR_Settings.message = msg:sub(5):gsub("^%s+", "")
-        colored("Сообщение изменено")
+    if cmd == "msg" then
+        local text = trim((a or "") .. (b ~= "" and (" " .. b) or ""))
+        if text ~= "" then
+            GR_Settings.message = text
+            colored("Сообщение изменено")
+        else
+            colored("Укажите текст: /gru msg <текст>")
+        end
 
     elseif cmd == "chan" then
         local ctype = string.upper(a or "")
@@ -89,9 +98,14 @@ SlashCmdList["GRU"] = function(msg)
         elseif a == "off" then GR_Settings.randomize = false end
         colored("randomize=" .. tostring(GR_Settings.randomize))
 
-    elseif cmd == "addtmpl" and b ~= "" then
-        table.insert(GR_Settings.templates, b)
-        colored("Шаблон добавлен. Всего: " .. #GR_Settings.templates)
+    elseif cmd == "addtmpl" then
+        local text = trim((a or "") .. (b ~= "" and (" " .. b) or ""))
+        if text ~= "" then
+            table.insert(GR_Settings.templates, text)
+            colored("Шаблон добавлен. Всего: " .. #GR_Settings.templates)
+        else
+            colored("Укажите текст шаблона: /gru addtmpl <текст>")
+        end
 
     elseif cmd == "clrtmpl" then
         GR_Settings.templates = {}
