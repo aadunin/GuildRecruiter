@@ -166,7 +166,16 @@ SlashCmdList["GUILDRECRUITER"] = function(cmd)
     colored(string.format(MSG.random_state, tostring(GR_Settings.randomize), #GR_Settings.templates))
 
   elseif a == "addtmpl" then
-    if b == "" then return colored(MSG.tmpl_need_text) end
+    if b == "" then
+        return colored(MSG.tmpl_need_text)
+    end
+    -- проверка на дубликаты
+    for _, tmpl in ipairs(GR_Settings.templates) do
+        if tmpl == b then
+            colored("Шаблон уже есть в списке, добавление пропущено.")
+            return
+        end
+    end
     table.insert(GR_Settings.templates, b)
     colored(string.format(MSG.tmpl_added, #GR_Settings.templates))
 
