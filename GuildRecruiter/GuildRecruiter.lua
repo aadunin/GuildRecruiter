@@ -218,7 +218,7 @@ end
 local function printHelp()
   print("|cffffff00Использование:|r")
   print("/gru msg <текст> — задать сообщение")
-  print("/gru chan <TYPE> [id|name] — канал (SAY/YELL/GUILD/PARTY/RAID/CHANNEL)")
+  print("/gru chan <TYPE> [id | name] — канал (SAY/YELL/GUILD/PARTY/RAID/CHANNEL)")
   print("/gru random on|off — вкл/выкл рандомизацию")
   print("/gru addtmpl <текст> — добавить шаблон")
   print("/gru clrtmpl — очистить шаблоны")
