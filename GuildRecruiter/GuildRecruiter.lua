@@ -5,7 +5,7 @@
 
 -- ==== SavedVariables (per account) ====
 GR_Settings = GR_Settings or {
-  message     = "🌟 Гильдия Местные Деды набирает игроков! Пишите /w для деталей.",
+  message     = "Гильдия Местные Деды набирает игроков! Пишите /w для деталей.",
   channelType = "SAY",      -- SAY, YELL, GUILD, PARTY, RAID, CHANNEL
   channelId   = nil,        -- для CHANNEL (числовой ID)
   randomize   = false,      -- true — брать случайный шаблон
