@@ -2,6 +2,6 @@
 ## Title: Guild Recruiter
 ## Notes: Автоматический рекрутинг для гильдии
 ## Author: Alexander
-## Version: 0.1.3
+## Version: 2.1
 ## SavedVariables: GR_Settings
 GuildRecruiter.lua
