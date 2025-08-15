@@ -1,6 +1,6 @@
--- ==============================
--- GuildRecruiter — Версия 2.1+
--- ==============================
+-- =====================================================
+-- GuildRecruiter — Расширенная версия с CRUD для шаблонов
+-- =====================================================
 
 -- SavedVariables (per account)
 GR_Settings = GR_Settings or {
@@ -27,6 +27,11 @@ local MSG = {
     tmpl_need_text         = "Укажите текст шаблона: /gru addtmpl <текст>",
     tmpl_cleared           = "Шаблоны очищены",
     tmpl_exists            = "Шаблон уже есть в списке, добавление пропущено.",
+    tmpl_list              = "Список шаблонов (%d):",
+    tmpl_deleted           = "Шаблон #%d удалён",
+    tmpl_deleted_nf        = "Шаблон с индексом %d не найден",
+    tmpl_edited            = "Шаблон #%d изменён",
+    tmpl_edit_need         = "Использование: /gru edittmpl <номер> <новый текст>",
     no_channels            = "Вы не подключены ни к одному пользовательскому каналу.",
     channels_list          = "Список каналов:",
     no_channel_id          = "Не задан channelId для CHANNEL. Используйте: /gru chan CHANNEL <id|name>",
@@ -45,7 +50,6 @@ end
 
 local function normalizeChannelName(name)
     local s = tostring(name or "")
-    -- удалить цветовые коды и пробелы
     return s:lower()
         :gsub("|c%x%x%x%x%x%x%x%x", "")
         :gsub("|r", "")
@@ -80,7 +84,7 @@ local function findChannel(input)
     return found
 end
 
--- ==== Логика ====
+-- ==== Логика отправки ====
 local ALLOWED_TYPES = {
     SAY=true, YELL=true, GUILD=true, PARTY=true, RAID=true, CHANNEL=true
 }
@@ -91,12 +95,11 @@ local function setChannel(ctype, arg)
         if key == "" then
             return colored(MSG.channel_need_input)
         end
-
         local id = findChannel(key)
         if id then
             GR_Settings.channelType = "CHANNEL"
             GR_Settings.channelId   = id
-            colored(string.format(MSG.channel_set, "CHANNEL ("..id..")"))
+            colored(string.format(MSG.channel_set, "CHANNEL("..id..")"))
         else
             if tonumber(key) then
                 colored(string.format(MSG.channel_id_not_found, tonumber(key)))
@@ -115,9 +118,7 @@ local function setChannel(ctype, arg)
     end
 end
 
--- Лёгкая защита от повторов в randomize
 local _lastIdx
-
 local function pickMessage()
     if GR_Settings.randomize then
         local tcount = #GR_Settings.templates
@@ -150,6 +151,34 @@ local function send()
     end
 end
 
+-- ==== CRUD для шаблонов ====
+local function printTemplates()
+    local count = #GR_Settings.templates
+    colored(string.format(MSG.tmpl_list, count))
+    for i, text in ipairs(GR_Settings.templates) do
+        print(string.format(" [%d] %s", i, text))
+    end
+end
+
+local function deleteTemplate(idx)
+    idx = tonumber(idx)
+    if not idx or idx < 1 or idx > #GR_Settings.templates then
+        return colored(string.format(MSG.tmpl_deleted_nf, idx or 0))
+    end
+    table.remove(GR_Settings.templates, idx)
+    colored(string.format(MSG.tmpl_deleted, idx))
+end
+
+local function editTemplate(idx, newText)
+    idx = tonumber(idx)
+    if not idx or idx < 1 or idx > #GR_Settings.templates then
+        return colored(string.format(MSG.tmpl_deleted_nf, idx or 0))
+    end
+    GR_Settings.templates[idx] = newText
+    colored(string.format(MSG.tmpl_edited, idx))
+end
+
+-- ==== Вывод текущих настроек и справка ====
 local function printStatus()
     print("|cffffff00Текущие настройки:|r")
     print(string.format(" Канал: %s%s",
@@ -168,9 +197,12 @@ local function printHelp()
     print("/gru random on|off          — включить/выключить рандомизацию")
     print("/gru addtmpl <текст>        — добавить шаблон")
     print("/gru clrtmpl                — очистить шаблоны")
+    print("/gru listtmpl               — показать все шаблоны")
+    print("/gru deltmpl <номер>        — удалить шаблон по индексу")
+    print("/gru edittmpl <номер> <текст> — изменить шаблон")
     print("/gru status                 — показать настройки")
+    print("/gru listchannels           — показать список каналов")
     print("/gru send                   — отправить сообщение")
-    print("/gru listchannels           — показать список подключённых каналов")
     print("/gru help                   — справка")
 end
 
@@ -225,11 +257,24 @@ SlashCmdList["GUILDRECRUITER"] = function(cmd)
         GR_Settings.templates = {}
         colored(MSG.tmpl_cleared)
 
+    elseif cmdName == "listtmpl" then
+        printTemplates()
+
+    elseif cmdName == "deltmpl" then
+        if trim(rest) == "" then
+            return colored("Укажите номер шаблона: /gru deltmpl <номер>")
+        end
+        deleteTemplate(rest)
+
+    elseif cmdName == "edittmpl" then
+        local idx, text = rest:match("^(%S+)%s+(.+)$")
+        if not idx or not text then
+            return colored(MSG.tmpl_edit_need)
+        end
+        editTemplate(idx, text)
+
     elseif cmdName == "status" then
         printStatus()
-
-    elseif cmdName == "send" then
-        send()
 
     elseif cmdName == "listchannels" then
         local found = false
@@ -243,6 +288,9 @@ SlashCmdList["GUILDRECRUITER"] = function(cmd)
         if not found then
             colored(MSG.no_channels)
         end
+
+    elseif cmdName == "send" then
+        send()
 
     else
         printHelp()
