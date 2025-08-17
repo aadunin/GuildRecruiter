@@ -1,49 +1,74 @@
---[[ 
-  GuildRecruiter.lua
-  Полностью собранный исправленный вариант
---]]
+--[[ GuildRecruiter.lua
+   Полный собранный вариант с выводом служебных сообщений в отдельную вкладку чата
+   и командой /gru sysframe <name|index|off> для настройки этой вкладки.
+]]
 
 -- ==== SavedVariables (per account) ====
 GR_Settings = GR_Settings or {
-  message     = "Гильдия Местные Деды набирает игроков! Пишите /w для деталей.",
-  channelType = "SAY",      -- SAY, YELL, GUILD, PARTY, RAID, CHANNEL
-  channelId   = nil,        -- для CHANNEL (числовой ID)
-  randomize   = false,      -- true — брать случайный шаблон
-  templates   = {}          -- массив строк для рандомизации
+  message       = "Гильдия Местные Деды набирает игроков! Пишите /w для деталей.",
+  channelType   = "SAY",     -- SAY, YELL, GUILD, PARTY, RAID, CHANNEL
+  channelId     = nil,       -- для CHANNEL (числовой ID)
+  randomize     = false,     -- true — брать случайный шаблон
+  templates     = {},        -- массив строк для рандомизации
+  weights       = {},        -- (опционально) веса для шаблонов (индекс → вес)
+  -- Новые поля для служебной вкладки:
+  sysFrameName  = nil,       -- имя вкладки для служебных сообщений (приоритетнее индекса)
+  sysFrameIndex = nil        -- индекс вкладки (если имя не задано)
 }
 
 -- ==== Локализация / Сообщения ====
 local MSG = {
-  msg_changed        = "Сообщение изменено",
-  msg_need_text      = "Укажите текст: /gru msg <текст>",
-  channel_set        = "Канал: %s",
-  channel_need_input = "Укажите ID или имя: /gru chan CHANNEL <id|name>",
-  channel_not_found  = "Канал '%s' не найден. Сначала: /join %s",
-  channel_id_not_found = "Канал с ID %d не найден.",
-  invalid_channel_type = "Неверный тип: %s. Допустимо: SAY, YELL, GUILD, PARTY, RAID, CHANNEL",
-  random_state       = "randomize=%s, шаблонов: %d",
-  random_usage       = "Используйте: /gru random on|off",
-  tmpl_added         = "Шаблон добавлен. Всего: %d",
-  tmpl_need_text     = "Укажите текст шаблона: /gru addtmpl <текст>",
-  tmpl_exists        = "Шаблон уже есть, пропущено.",
-  tmpl_cleared       = "Шаблоны очищены",
-  tmpl_list          = "Список шаблонов (%d):",
-  tmpl_deleted       = "Шаблон #%d удалён",
-  tmpl_deleted_nf    = "Шаблон с индексом %d не найден",
-  tmpl_edited        = "Шаблон #%d изменён",
-  tmpl_edit_need     = "Использование: /gru edittmpl <номер> <текст>",
-  no_channels        = "Вы не подключены ни к одному кастом-каналу.",
-  channels_list      = "Список каналов:",
-  no_channel_id      = "Не задан channelId для CHANNEL. /gru chan CHANNEL <id|name>",
-  send_done          = "Отправлено в %s",
-  random_empty_warn  = "Рандомизация включена, но шаблонов нет — отключено."
+  msg_changed            = "Сообщение изменено",
+  msg_need_text          = "Укажите текст: /gru msg <текст>",
+  channel_set            = "Канал: %s",
+  channel_need_input     = "Укажите ID или имя: /gru chan CHANNEL <id|name>",
+  channel_not_found      = "Канал '%s' не найден. Сначала: /join %s",
+  channel_id_not_found   = "Канал с ID %d не найден.",
+  invalid_channel_type   = "Неверный тип: %s. Допустимо: SAY, YELL, GUILD, PARTY, RAID, CHANNEL",
+  random_state           = "randomize=%s, шаблонов: %d",
+  random_usage           = "Используйте: /gru random on|off",
+  tmpl_added             = "Шаблон добавлен. Всего: %d",
+  tmpl_need_text         = "Укажите текст шаблона: /gru addtmpl <текст>",
+  tmpl_exists            = "Шаблон уже есть, пропущено.",
+  tmpl_cleared           = "Шаблоны очищены",
+  tmpl_list              = "Список шаблонов (%d):",
+  tmpl_deleted           = "Шаблон #%d удалён",
+  tmpl_deleted_nf        = "Шаблон с индексом %d не найден",
+  tmpl_edited            = "Шаблон #%d изменён",
+  tmpl_edit_need         = "Использование: /gru edittmpl <номер> <текст>",
+  no_channels            = "Вы не подключены ни к одному кастом-каналу.",
+  channels_list          = "Список каналов:",
+  no_channel_id          = "Не задан channelId для CHANNEL. /gru chan CHANNEL <id|name>",
+  send_done              = "Отправлено в %s",
+  random_empty_warn      = "Рандомизация включена, но шаблонов нет — отключено.",
+  sysframe_usage         = "Использование: /gru sysframe <name|index|off>",
+  sysframe_set_name      = "Служебная вкладка установлена по имени: %s",
+  sysframe_set_index     = "Служебная вкладка установлена по индексу: %d",
+  sysframe_off           = "Служебная вкладка: выключено (используется общий чат)",
+  sysframe_not_found_idx = "Вкладка с индексом %d не найдена",
+  sysframe_not_found_nm  = "Вкладка с именем '%s' не найдена"
 }
 
--- ==== Утилиты (должны идти первыми!) ====
-local function colored(msg)
-  print("|cff00ff00[GR]|r " .. msg)
+-- ==== Локализация глобальных API / утилит ====
+local _G               = _G
+local tinsert          = table.insert
+local tremove          = table.remove
+local wipe             = _G.wipe or function(t) for k in pairs(t) do t[k]=nil end end
+local time             = _G.time
+local mrandom          = math.random
+local mseed            = math.randomseed
+local SendChatMessage  = _G.SendChatMessage
+local GetChannelList   = _G.GetChannelList
+local GetChatWindowInfo= _G.GetChatWindowInfo
+local NUM_CHAT_WINDOWS = _G.NUM_CHAT_WINDOWS or 10
+local IsInGuild        = _G.IsInGuild
+local UnitInParty      = _G.UnitInParty
+local UnitInRaid       = _G.UnitInRaid
+local tContains        = _G.tContains or function(t, v)
+  for i=1,#t do if t[i]==v then return true end end
 end
 
+-- ==== Утилиты (должны идти первыми!) ====
 local function trim(s)
   return (s or ""):gsub("^%s+", ""):gsub("%s+$", "")
 end
@@ -51,10 +76,10 @@ end
 local function normalizeChannelName(name)
   local s = tostring(name or "")
   return s:lower()
-           :gsub("|c%x%x%x%x%x%x%x%x","")
-           :gsub("|r","")
-           :gsub("^%s+","")
-           :gsub("%s+$","")
+          :gsub("|c%x%x%x%x%x%x%x%x", "")
+          :gsub("|r", "")
+          :gsub("^%s+", "")
+          :gsub("%s+$", "")
 end
 
 local function iterateChannels(callback)
@@ -82,61 +107,129 @@ local function findChannel(input)
   return found
 end
 
--- ==== Рандомизация (очередь + окно повторений) ====
-local _queue       = {}
-local _pos         = 1
-local _recent      = {}
-local _window_size = 3
+-- Резолвер вкладки для служебных сообщений
+local function resolveSysChatFrame()
+  -- По имени вкладки (приоритет)
+  local name = GR_Settings and GR_Settings.sysFrameName
+  if name and name ~= "" then
+    for i = 1, NUM_CHAT_WINDOWS do
+      local title = GetChatWindowInfo(i)
+      if title == name then
+        local f = _G["ChatFrame"..i]
+        if f and f.AddMessage then return f end
+      end
+    end
+  end
+  -- По индексу вкладки
+  local idx = GR_Settings and tonumber(GR_Settings.sysFrameIndex)
+  if idx and idx >= 1 and idx <= NUM_CHAT_WINDOWS then
+    local f = _G["ChatFrame"..idx]
+    if f and f.AddMessage then return f end
+  end
+  return nil
+end
 
-local function initRNG()
-  if math.randomseed then
-    local seed = time()
-    math.randomseed(seed)
-    math.random(); math.random(); math.random()
+-- Вывод служебных сообщений (по вкладке или в общий чат)
+local function colored(msg)
+  local prefix = "|cff00ff00[GR]|r "
+  local f = resolveSysChatFrame()
+  if f then
+    f:AddMessage(prefix .. msg)
+  else
+    -- Fallback: в общий чат (может быть перехвачен чат-модами, но это ожидаемо)
+    print(prefix .. msg)
   end
 end
 
+-- ==== Рандомизация (очередь + окно повторений) ====
+local _queue        = {}
+local _pos          = 1
+local _recent       = {}
+local _window_size  = 3
+
+local function initRNG()
+  if mseed and time then
+    mseed(time())
+    if mrandom then mrandom(); mrandom(); mrandom() end
+  end
+end
+
+-- Собираем очередь индексов с учётом весов (если заданы)
 local function buildQueue()
   wipe(_queue)
-  for i=1,#GR_Settings.templates do
-    table.insert(_queue, i)
+  local tcount  = #GR_Settings.templates
+  local weights = GR_Settings.weights or {}
+
+  -- если нет весов — кладём каждый индекс один раз
+  local hasWeights = false
+  for i=1, tcount do
+    if (weights[i] or 0) > 1 then hasWeights = true break end
   end
-  -- Фишер–Йейтс
+
+  if hasWeights then
+    for i=1, tcount do
+      local w = math.max(weights[i] or 1, 1)
+      for _=1, w do tinsert(_queue, i) end
+    end
+  else
+    for i=1, tcount do tinsert(_queue, i) end
+  end
+
+  -- Fisher–Yates shuffle
   for i=#_queue,2,-1 do
-    local j = math.random(i)
+    local j = mrandom(i)
     _queue[i], _queue[j] = _queue[j], _queue[i]
   end
+
   _pos = 1
   wipe(_recent)
 end
 
 local function pickMessage()
   if GR_Settings.randomize then
-    if #_queue==0 or _pos>#_queue then
+    if #GR_Settings.templates == 0 then
+      GR_Settings.randomize = false
+      colored(MSG.random_empty_warn)
+      return GR_Settings.message
+    end
+
+    if #_queue == 0 or _pos > #_queue then
       buildQueue()
     end
+
     local idx
     repeat
       idx = _queue[_pos]
       _pos = _pos + 1
-    until not tContains(_recent, idx) or _pos>#_queue
+    until not tContains(_recent, idx) or _pos > #_queue
 
-    table.insert(_recent, idx)
-    if #_recent>_window_size then
-      table.remove(_recent, 1)
+    tinsert(_recent, idx)
+    if #_recent > _window_size then
+      tremove(_recent, 1)
     end
+
     return GR_Settings.templates[idx]
   end
+
   return GR_Settings.message
 end
 
 -- ==== Установка канала ====
-local ALLOWED_TYPES = { SAY=true, YELL=true, GUILD=true, PARTY=true, RAID=true, CHANNEL=true }
+local ALLOWED_TYPES = {
+  SAY     = true,
+  YELL    = true,
+  GUILD   = true,
+  PARTY   = true,
+  RAID    = true,
+  CHANNEL = true
+}
 
 local function setChannel(ctype, arg)
-  if ctype=="CHANNEL" then
+  ctype = tostring(ctype or ""):upper()
+
+  if ctype == "CHANNEL" then
     local key = trim(arg)
-    if key=="" then
+    if key == "" then
       return colored(MSG.channel_need_input)
     end
     local id = findChannel(key)
@@ -151,28 +244,47 @@ local function setChannel(ctype, arg)
         colored(string.format(MSG.channel_not_found, key, key))
       end
     end
-  else
-    if not ALLOWED_TYPES[ctype] then
-      return colored(string.format(MSG.invalid_channel_type, ctype))
+
+  elseif ctype == "GUILD" then
+    if not IsInGuild or not IsInGuild() then
+      return colored("Нельзя установить канал GUILD: вы не в гильдии.")
     end
+    GR_Settings.channelType = "GUILD"
+    GR_Settings.channelId   = nil
+    colored(string.format(MSG.channel_set, "GUILD"))
+
+  elseif ALLOWED_TYPES[ctype] then
     GR_Settings.channelType = ctype
     GR_Settings.channelId   = nil
     colored(string.format(MSG.channel_set, ctype))
+
+  else
+    colored(string.format(MSG.invalid_channel_type, ctype))
   end
 end
 
 -- ==== Отправка сообщения ====
 local function send()
-  local msg = pickMessage()
-  if GR_Settings.channelType=="CHANNEL" then
+  local msg   = pickMessage()
+  local ctype = GR_Settings.channelType
+
+  if ctype == "GUILD" and (not IsInGuild or not IsInGuild()) then
+    return colored("Нельзя отправить: вы не в гильдии.")
+  elseif ctype == "PARTY" and (not UnitInParty or not UnitInParty("player")) then
+    return colored("Нельзя отправить: вы не в группе.")
+  elseif ctype == "RAID" and (not UnitInRaid or not UnitInRaid("player")) then
+    return colored("Нельзя отправить: вы не в рейде.")
+  end
+
+  if ctype == "CHANNEL" then
     if not GR_Settings.channelId then
       return colored(MSG.no_channel_id)
     end
     SendChatMessage(msg, "CHANNEL", nil, GR_Settings.channelId)
     colored(string.format(MSG.send_done, "CHANNEL("..GR_Settings.channelId..")"))
   else
-    SendChatMessage(msg, GR_Settings.channelType)
-    colored(string.format(MSG.send_done, GR_Settings.channelType))
+    SendChatMessage(msg, ctype)
+    colored(string.format(MSG.send_done, ctype))
   end
 end
 
@@ -180,8 +292,8 @@ end
 local function printTemplates()
   local count = #GR_Settings.templates
   colored(string.format(MSG.tmpl_list, count))
-  for i,text in ipairs(GR_Settings.templates) do
-    print(string.format(" [%d] %s", i, text))
+  for i, text in ipairs(GR_Settings.templates) do
+    colored(string.format(" [%d] %s", i, text))
   end
 end
 
@@ -190,11 +302,11 @@ local function deleteTemplate(idx)
   if not idx or idx<1 or idx>#GR_Settings.templates then
     return colored(string.format(MSG.tmpl_deleted_nf, idx or 0))
   end
-  table.remove(GR_Settings.templates, idx)
+  tremove(GR_Settings.templates, idx)
   colored(string.format(MSG.tmpl_deleted, idx))
 end
 
-local function editTemplate(idx,newText)
+local function editTemplate(idx, newText)
   idx = tonumber(idx)
   if not idx or idx<1 or idx>#GR_Settings.templates then
     return colored(string.format(MSG.tmpl_deleted_nf, idx or 0))
@@ -205,30 +317,39 @@ end
 
 -- ==== Вывод статуса и помощи ====
 local function printStatus()
-  print("|cffffff00Текущие настройки:|r")
-  print(string.format(" Канал: %s%s",
+  colored("|cffffff00Текущие настройки:|r")
+  colored(string.format(" Канал: %s%s",
     GR_Settings.channelType,
     GR_Settings.channelId and (" ("..GR_Settings.channelId..")") or ""
   ))
-  print(" Рандомизация:", GR_Settings.randomize and "вкл." or "выкл.")
-  print(" Шаблонов:", #GR_Settings.templates)
-  print(" Сообщение:", GR_Settings.message)
+  colored(" Рандомизация: " .. (GR_Settings.randomize and "вкл." or "выкл."))
+  colored(" Шаблонов: " .. #GR_Settings.templates)
+  colored(" Сообщение: " .. GR_Settings.message)
+
+  local sysLine = "DEFAULT"
+  if GR_Settings.sysFrameName and GR_Settings.sysFrameName ~= "" then
+    sysLine = "name="..GR_Settings.sysFrameName
+  elseif GR_Settings.sysFrameIndex then
+    sysLine = "index="..tostring(GR_Settings.sysFrameIndex)
+  end
+  colored(" Служебная вкладка: " .. sysLine)
 end
 
 local function printHelp()
-  print("|cffffff00Использование:|r")
-  print("/gru msg <текст> — задать сообщение")
-  print("/gru chan <TYPE> [id | name] — канал (SAY/YELL/GUILD/PARTY/RAID/CHANNEL)")
-  print("/gru random on|off — вкл/выкл рандомизацию")
-  print("/gru addtmpl <текст> — добавить шаблон")
-  print("/gru clrtmpl — очистить шаблоны")
-  print("/gru listtmpl — показать шаблоны")
-  print("/gru deltmpl <номер> — удалить шаблон")
-  print("/gru edittmpl <номер> <текст> — редактировать шаблон")
-  print("/gru status — показать настройки")
-  print("/gru listchannels — список каналов")
-  print("/gru send — отправить сообщение")
-  print("/gru help — справка")
+  colored("|cffffff00Использование:|r")
+  colored("/gru msg <текст>       — задать сообщение")
+  colored("/gru chan <TYPE> [x]   — канал (SAY/YELL/GUILD/PARTY/RAID/CHANNEL)")
+  colored("/gru random on|off     — вкл/выкл рандомизацию")
+  colored("/gru addtmpl <текст>   — добавить шаблон")
+  colored("/gru clrtmpl           — очистить шаблоны")
+  colored("/gru listtmpl          — показать шаблоны")
+  colored("/gru deltmpl <номер>   — удалить шаблон")
+  colored("/gru edittmpl <номер> <текст> — редактировать шаблон")
+  colored("/gru sysframe <name|index|off> — вкладка для служебных сообщений")
+  colored("/gru listchannels      — список каналов")
+  colored("/gru status            — показать настройки")
+  colored("/gru send              — отправить сообщение")
+  colored("/gru help              — справка")
 end
 
 -- ==== Slash-команда ====
@@ -252,9 +373,15 @@ SlashCmdList["GUILDRECRUITER"] = function(cmd)
 
   elseif cmdName=="random" then
     rest = rest:lower()
-    if rest=="on" then GR_Settings.randomize = true
-    elseif rest=="off" then GR_Settings.randomize = false
-    else return colored(MSG.random_usage) end
+    if rest=="on" then
+      GR_Settings.randomize = true
+      wipe(_queue); wipe(_recent)
+    elseif rest=="off" then
+      GR_Settings.randomize = false
+      wipe(_queue); wipe(_recent)
+    else
+      return colored(MSG.random_usage)
+    end
     colored(string.format(MSG.random_state, tostring(GR_Settings.randomize), #GR_Settings.templates))
 
   elseif cmdName=="addtmpl" then
@@ -263,11 +390,13 @@ SlashCmdList["GUILDRECRUITER"] = function(cmd)
     for _,v in ipairs(GR_Settings.templates) do
       if v==text then return colored(MSG.tmpl_exists) end
     end
-    table.insert(GR_Settings.templates, text)
-    colored(string.format(MSG.tmpl_added,#GR_Settings.templates))
+    tinsert(GR_Settings.templates, text)
+    wipe(_queue); wipe(_recent) -- обновим очередь при следующем выборе
+    colored(string.format(MSG.tmpl_added, #GR_Settings.templates))
 
   elseif cmdName=="clrtmpl" then
     GR_Settings.templates = {}
+    wipe(_queue); wipe(_recent)
     colored(MSG.tmpl_cleared)
 
   elseif cmdName=="listtmpl" then
@@ -278,25 +407,64 @@ SlashCmdList["GUILDRECRUITER"] = function(cmd)
       return colored("Укажите номер: /gru deltmpl <номер>")
     end
     deleteTemplate(rest)
+    wipe(_queue); wipe(_recent)
 
   elseif cmdName=="edittmpl" then
-    local idx,text = rest:match("^(%S+)%s+(.+)$")
-    if not idx or not text then return colored(MSG.tmpl_edit_need) end
-    editTemplate(idx,text)
+    local idx, text = rest:match("^(%S+)%s+(.+)$")
+    if not idx or not text then
+      return colored(MSG.tmpl_edit_need)
+    end
+    editTemplate(idx, text)
+    wipe(_queue); wipe(_recent)
 
-  elseif cmdName=="status" then
-    printStatus()
+  elseif cmdName=="sysframe" then
+    local arg = trim(rest)
+    if arg=="" then
+      return colored(MSG.sysframe_usage)
+    end
+    if arg:lower()=="off" then
+      GR_Settings.sysFrameName  = nil
+      GR_Settings.sysFrameIndex = nil
+      return colored(MSG.sysframe_off)
+    end
+    local n = tonumber(arg)
+    if n then
+      if n>=1 and n<=NUM_CHAT_WINDOWS and _G["ChatFrame"..n] then
+        GR_Settings.sysFrameName  = nil
+        GR_Settings.sysFrameIndex = n
+        return colored(string.format(MSG.sysframe_set_index, n))
+      else
+        return colored(string.format(MSG.sysframe_not_found_idx, n))
+      end
+    else
+      -- по имени вкладки
+      local found
+      for i=1, NUM_CHAT_WINDOWS do
+        local title = GetChatWindowInfo(i)
+        if title == arg then found = i break end
+      end
+      if found then
+        GR_Settings.sysFrameName  = arg
+        GR_Settings.sysFrameIndex = nil
+        return colored(string.format(MSG.sysframe_set_name, arg))
+      else
+        return colored(string.format(MSG.sysframe_not_found_nm, arg))
+      end
+    end
 
   elseif cmdName=="listchannels" then
     local found = false
-    iterateChannels(function(id,name)
+    iterateChannels(function(id, name)
       if not found then
         colored(MSG.channels_list)
         found = true
       end
-      print(string.format(" [%d] %s", id, name))
+      colored(string.format(" [%d] %s", id, name))
     end)
     if not found then colored(MSG.no_channels) end
+
+  elseif cmdName=="status" then
+    printStatus()
 
   elseif cmdName=="send" then
     send()
@@ -306,13 +474,16 @@ SlashCmdList["GUILDRECRUITER"] = function(cmd)
   end
 end
 
--- ==== Инициализация (ADDON_LOADED) ====
+-- ==== Инициализация (ADDON_LOADED + PLAYER_LOGIN) ====
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("ADDON_LOADED")
+frame:RegisterEvent("PLAYER_LOGIN")
 frame:SetScript("OnEvent", function(self, event, addon)
-  if addon=="GuildRecruiter" then
+  if event == "ADDON_LOADED" and addon == "GuildRecruiter" then
     initRNG()
     GR_Settings.templates = GR_Settings.templates or {}
+  elseif event == "PLAYER_LOGIN" then
     colored("GuildRecruiter загружен. Введите /gru help для справки.")
+    self:UnregisterEvent("PLAYER_LOGIN")
   end
 end)
