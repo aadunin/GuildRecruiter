@@ -494,6 +494,7 @@ frame:SetScript("OnEvent", function(self, event, addon)
   if event == "ADDON_LOADED" and addon == "GuildRecruiter" then
     initRNG()
     GR_Settings.templates = GR_Settings.templates or {}
+    _window_size = GR_Settings.windowSize or 3
   elseif event == "PLAYER_LOGIN" then
     colored("GuildRecruiter загружен. Введите /gru help для справки.")
     self:UnregisterEvent("PLAYER_LOGIN")
