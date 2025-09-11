@@ -324,6 +324,7 @@ local function printStatus()
     GR_Settings.channelId and (" ("..GR_Settings.channelId..")") or ""
   ))
   colored(" Рандомизация: " .. (GR_Settings.randomize and "вкл." or "выкл."))
+  colored(" Размер окна: " .. (_window_size or GR_Settings.windowSize))
   colored(" Шаблонов: " .. #GR_Settings.templates)
   colored(" Сообщение: " .. GR_Settings.message)
 
