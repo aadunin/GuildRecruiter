@@ -9,6 +9,7 @@ GR_Settings = GR_Settings or {
   channelType   = "SAY",     -- SAY, YELL, GUILD, PARTY, RAID, CHANNEL
   channelId     = nil,       -- для CHANNEL (числовой ID)
   randomize     = false,     -- true — брать случайный шаблон
+  windowSize    = 3,         -- длина «скользящего окна» по умолчанию
   templates     = {},        -- массив строк для рандомизации
   weights       = {},        -- (опционально) веса для шаблонов (индекс → вес)
   -- Новые поля для служебной вкладки:
@@ -145,7 +146,7 @@ end
 local _queue        = {}
 local _pos          = 1
 local _recent       = {}
-local _window_size  = 3
+local _window_size = GR_Settings.windowSize or 3
 
 local function initRNG()
   if mseed and time then
@@ -182,7 +183,7 @@ local function buildQueue()
   end
 
   _pos = 1
-  wipe(_recent)
+  -- wipe(_recent)
 end
 
 local function pickMessage()
@@ -340,6 +341,7 @@ local function printHelp()
   colored("/gru msg <текст>       — задать сообщение")
   colored("/gru chan <TYPE> [x]   — канал (SAY/YELL/GUILD/PARTY/RAID/CHANNEL)")
   colored("/gru random on|off     — вкл/выкл рандомизацию")
+  colored("/gru window <число>    — установить длину скользящего окна")
   colored("/gru addtmpl <текст>   — добавить шаблон")
   colored("/gru clrtmpl           — очистить шаблоны")
   colored("/gru listtmpl          — показать шаблоны")
@@ -384,6 +386,15 @@ SlashCmdList["GUILDRECRUITER"] = function(cmd)
     end
     colored(string.format(MSG.random_state, tostring(GR_Settings.randomize), #GR_Settings.templates))
 
+  elseif cmdName == "window" then
+    local n = tonumber(rest)
+    if not n or n < 1 then
+      return colored("Укажите положительное число: /gru window <число>")
+    end
+    GR_Settings.windowSize = n
+    _window_size = n
+    colored("Размер окна рандомизации установлен на " .. n)
+      
   elseif cmdName=="addtmpl" then
     local text = trim(rest)
     if text=="" then return colored(MSG.tmpl_need_text) end
@@ -415,7 +426,7 @@ SlashCmdList["GUILDRECRUITER"] = function(cmd)
       return colored(MSG.tmpl_edit_need)
     end
     editTemplate(idx, text)
-    wipe(_queue); wipe(_recent)
+    wipe(_queue); 
 
   elseif cmdName=="sysframe" then
     local arg = trim(rest)
