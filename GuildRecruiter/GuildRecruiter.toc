@@ -1,7 +1,8 @@
 ## Interface: 50500
 ## Title: Guild Recruiter
-## Notes: Автоматический рекрутинг для гильдии
 ## Author: Alexander
 ## Version: 2.1
+## Dependencies: AceConsole-3.0 AceEvent-3.0 AceDB-3.0 AceConfig-3.0 AceConfigDialog-3.0
 ## SavedVariables: GR_Settings
+
 GuildRecruiter.lua
