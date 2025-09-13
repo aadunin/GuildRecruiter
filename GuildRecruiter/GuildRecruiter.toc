@@ -11,5 +11,5 @@ libs\Ace3\AceEvent-3.0\AceEvent-3.0.xml
 libs\Ace3\AceDB-3.0\AceDB-3.0.xml
 libs\Ace3\AceConfig-3.0\AceConfig-3.0.xml
 libs\Ace3\AceConfigDialog-3.0\AceConfigDialog-3.0.xml
---]]
+]]
 GuildRecruiter.lua
