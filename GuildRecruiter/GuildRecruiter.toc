@@ -1,8 +1,8 @@
 ## Interface: 50500
 ## Title: Guild Recruiter
 ## Author: Alexander
-## Version: 2.1
-## Dependencies: AceConsole-3.0 AceEvent-3.0 AceDB-3.0 AceConfig-3.0 AceConfigDialog-3.0
+## Version: 1
+-- ## Dependencies: AceConsole-3.0 AceEvent-3.0 AceDB-3.0 AceConfig-3.0 AceConfigDialog-3.0
 ## SavedVariables: GR_Settings
 --[[
 libs\Ace3\AceAddon-3.0\AceAddon-3.0.xml
