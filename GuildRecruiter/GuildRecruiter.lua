@@ -496,19 +496,23 @@ frame:SetScript("OnEvent", function(self, event, addon)
     GR_Settings.templates = GR_Settings.templates or {}
     _window_size = GR_Settings.windowSize or 3
 
--- === GuildRecruiter: пункт в ПКМ для приглашения в гильдию ===
+-- === GuildRecruiter: пункт в ПКМ для приглашения в гильдию (отладка) ===
 if not GR_ContextMenuInitDone then
     GR_ContextMenuInitDone = true
+    print("GR DEBUG: инициализация контекстного меню...")
 
-    -- 1) Регистрируем пункт, если ещё не зарегистрирован
+    -- 1) Регистрируем пункт
     if not UnitPopupButtons["GR_GINVITE"] then
         UnitPopupButtons["GR_GINVITE"] = {
             text = "Пригласить в гильдию (GR)",
             dist = 0,
         }
+        print("GR DEBUG: зарегистрирован новый пункт GR_GINVITE")
+    else
+        print("GR DEBUG: пункт GR_GINVITE уже был зарегистрирован")
     end
 
-    -- 2) Добавляем пункт в несколько меню (чат, фреймы, таргет)
+    -- 2) Добавляем пункт в несколько меню
     local targets = { "PLAYER", "FRIEND", "PARTY", "RAID_PLAYER", "TARGET", "CHAT_ROSTER" }
     for _, menuName in ipairs(targets) do
         local list = UnitPopupMenus and UnitPopupMenus[menuName]
@@ -519,45 +523,57 @@ if not GR_ContextMenuInitDone then
             end
             if not exists then
                 table.insert(list, #list + 1, "GR_GINVITE")
+                print("GR DEBUG: пункт добавлен в меню " .. menuName)
+            else
+                print("GR DEBUG: пункт уже есть в меню " .. menuName)
             end
+        else
+            print("GR DEBUG: меню " .. menuName .. " не найдено")
         end
     end
 
     -- 3) Обработка клика по пункту
     hooksecurefunc("UnitPopup_OnClick", function(self)
         if self.value ~= "GR_GINVITE" then return end
+        print("GR DEBUG: выбран пункт GR_GINVITE")
 
         local ctx = UIDROPDOWNMENU_INIT_MENU
-        if not ctx then return end
+        if not ctx then
+            print("GR DEBUG: нет контекста меню")
+            return
+        end
 
-        -- Пытаемся получить имя из разных контекстов
+        -- Пытаемся получить имя
         local name = ctx.name
         if (not name or name == "") and ctx.unit and UnitExists(ctx.unit) then
             local unitName, unitRealm = UnitName(ctx.unit)
             name = (unitRealm and unitRealm ~= "") and (unitName .. "-" .. unitRealm) or unitName
         end
-        if not name or name == "" then return end
+        if not name or name == "" then
+            print("GR DEBUG: имя не найдено")
+            return
+        end
 
-        -- Не звать самого себя и проверка гильдии
+        -- Проверка на самого себя
         local me, myRealm = UnitName("player")
         local meFull = (myRealm and myRealm ~= "") and (me .. "-" .. myRealm) or me
-        if name == me or name == meFull then return end
+        if name == me or name == meFull then
+            print("GR DEBUG: попытка пригласить самого себя")
+            return
+        end
 
+        -- Проверка гильдии
         if IsInGuild and not IsInGuild() then
-            if colored then colored("Вы не состоите в гильдии, приглашение невозможно.")
-            else print("|cff00ff00[GR]|r Вы не состоите в гильдии, приглашение невозможно.") end
+            colored("Вы не состоите в гильдии, приглашение невозможно.")
             return
         end
 
         GuildInvite(name)
-        if colored then
-            colored("Отправлено приглашение в гильдию: " .. name)
-        else
-            print("|cff00ff00[GR]|r Отправлено приглашение в гильдию: " .. name)
-        end
+        colored("Отправлено приглашение в гильдию: " .. name)
     end)
 end
 
+         
   elseif event == "PLAYER_LOGIN" then
     colored("GuildRecruiter загружен. Введите /gru help для справки.")
     self:UnregisterEvent("PLAYER_LOGIN")
