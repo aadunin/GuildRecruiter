@@ -495,6 +495,69 @@ frame:SetScript("OnEvent", function(self, event, addon)
     initRNG()
     GR_Settings.templates = GR_Settings.templates or {}
     _window_size = GR_Settings.windowSize or 3
+
+-- === GuildRecruiter: пункт в ПКМ для приглашения в гильдию ===
+if not GR_ContextMenuInitDone then
+    GR_ContextMenuInitDone = true
+
+    -- 1) Регистрируем пункт, если ещё не зарегистрирован
+    if not UnitPopupButtons["GR_GINVITE"] then
+        UnitPopupButtons["GR_GINVITE"] = {
+            text = "Пригласить в гильдию (GR)",
+            dist = 0,
+        }
+    end
+
+    -- 2) Добавляем пункт в несколько меню (чат, фреймы, таргет)
+    local targets = { "PLAYER", "FRIEND", "PARTY", "RAID_PLAYER", "TARGET", "CHAT_ROSTER" }
+    for _, menuName in ipairs(targets) do
+        local list = UnitPopupMenus and UnitPopupMenus[menuName]
+        if list then
+            local exists
+            for i = 1, #list do
+                if list[i] == "GR_GINVITE" then exists = true break end
+            end
+            if not exists then
+                table.insert(list, #list + 1, "GR_GINVITE")
+            end
+        end
+    end
+
+    -- 3) Обработка клика по пункту
+    hooksecurefunc("UnitPopup_OnClick", function(self)
+        if self.value ~= "GR_GINVITE" then return end
+
+        local ctx = UIDROPDOWNMENU_INIT_MENU
+        if not ctx then return end
+
+        -- Пытаемся получить имя из разных контекстов
+        local name = ctx.name
+        if (not name or name == "") and ctx.unit and UnitExists(ctx.unit) then
+            local unitName, unitRealm = UnitName(ctx.unit)
+            name = (unitRealm and unitRealm ~= "") and (unitName .. "-" .. unitRealm) or unitName
+        end
+        if not name or name == "" then return end
+
+        -- Не звать самого себя и проверка гильдии
+        local me, myRealm = UnitName("player")
+        local meFull = (myRealm and myRealm ~= "") and (me .. "-" .. myRealm) or me
+        if name == me or name == meFull then return end
+
+        if IsInGuild and not IsInGuild() then
+            if colored then colored("Вы не состоите в гильдии, приглашение невозможно.")
+            else print("|cff00ff00[GR]|r Вы не состоите в гильдии, приглашение невозможно.") end
+            return
+        end
+
+        GuildInvite(name)
+        if colored then
+            colored("Отправлено приглашение в гильдию: " .. name)
+        else
+            print("|cff00ff00[GR]|r Отправлено приглашение в гильдию: " .. name)
+        end
+    end)
+end
+
   elseif event == "PLAYER_LOGIN" then
     colored("GuildRecruiter загружен. Введите /gru help для справки.")
     self:UnregisterEvent("PLAYER_LOGIN")
