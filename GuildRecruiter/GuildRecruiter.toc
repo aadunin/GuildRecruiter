@@ -1,6 +1,7 @@
-## Interface: 50500
+## Interface: 120001
 ## Title: Guild Recruiter
 ## Author: Alexander
 ## Version: 1
+## Notes: Guild Recruiter for WoW Midnight
 ## SavedVariables: GR_Settings
 GuildRecruiter.lua
