@@ -5,7 +5,7 @@
 
 -- ==== SavedVariables (per account) ====
 GR_Settings = GR_Settings or {
-  message       = "Гильдия Местные Деды набирает игроков! Пишите /w для деталей.",
+  message       = "Гильдия Местные Д Е Д Ы набирает игроков! Пишите /w для деталей.",
   channelType   = "SAY",     -- SAY, YELL, GUILD, PARTY, RAID, CHANNEL
   channelId     = nil,       -- для CHANNEL (числовой ID)
   randomize     = false,     -- true — брать случайный шаблон
@@ -110,7 +110,6 @@ end
 
 -- Резолвер вкладки для служебных сообщений
 local function resolveSysChatFrame()
-  -- По имени вкладки (приоритет)
   local name = GR_Settings and GR_Settings.sysFrameName
   if name and name ~= "" then
     for i = 1, NUM_CHAT_WINDOWS do
@@ -121,7 +120,6 @@ local function resolveSysChatFrame()
       end
     end
   end
-  -- По индексу вкладки
   local idx = GR_Settings and tonumber(GR_Settings.sysFrameIndex)
   if idx and idx >= 1 and idx <= NUM_CHAT_WINDOWS then
     local f = _G["ChatFrame"..idx]
@@ -130,14 +128,13 @@ local function resolveSysChatFrame()
   return nil
 end
 
--- Вывод служебных сообщений (по вкладке или в общий чат)
+-- Вывод служебных сообщений
 local function colored(msg)
   local prefix = "|cff00ff00[GR]|r "
   local f = resolveSysChatFrame()
   if f then
     f:AddMessage(prefix .. msg)
   else
-    -- Fallback: в общий чат (может быть перехвачен чат-модами, но это ожидаемо)
     print(prefix .. msg)
   end
 end
@@ -155,13 +152,11 @@ local function initRNG()
   end
 end
 
--- Собираем очередь индексов с учётом весов (если заданы)
 local function buildQueue()
   wipe(_queue)
   local tcount  = #GR_Settings.templates
   local weights = GR_Settings.weights or {}
 
-  -- если нет весов — кладём каждый индекс один раз
   local hasWeights = false
   for i=1, tcount do
     if (weights[i] or 0) > 1 then hasWeights = true break end
@@ -176,14 +171,12 @@ local function buildQueue()
     for i=1, tcount do tinsert(_queue, i) end
   end
 
-  -- Fisher–Yates shuffle
   for i=#_queue,2,-1 do
     local j = mrandom(i)
     _queue[i], _queue[j] = _queue[j], _queue[i]
   end
 
   _pos = 1
-  -- wipe(_recent)
 end
 
 local function pickMessage()
@@ -213,6 +206,58 @@ local function pickMessage()
   end
 
   return GR_Settings.message
+end
+
+-- ==== Состояние для режима ожидания ссылки гильдии ====
+local GR_WaitForGuildLink = false
+local GR_AlreadyProcessedLink = false
+
+local function GR_ProcessGuildLink(editBox)
+  if not GR_WaitForGuildLink or not editBox then return end
+
+  local text = editBox:GetText()
+  if not text or text == "" then return end
+  if GR_AlreadyProcessedLink then return end
+
+  if text:find("|HclubFinder:") then
+    GR_AlreadyProcessedLink = true
+    GR_WaitForGuildLink = false
+
+    -- Базовый текст (как в /gru send)
+    local baseMsg = pickMessage() or ""
+    local body = (baseMsg ~= "" and (baseMsg .. " " .. text)) or text
+
+    -- Префикс канала
+    local prefix = ""
+    local ctype  = GR_Settings.channelType
+
+    if ctype == "CHANNEL" and GR_Settings.channelId then
+      prefix = "/" .. GR_Settings.channelId .. " "
+    elseif ctype == "GUILD" then
+      prefix = "/g "
+    elseif ctype == "PARTY" then
+      prefix = "/p "
+    elseif ctype == "RAID" then
+      prefix = "/raid "
+    elseif ctype == "YELL" then
+      prefix = "/y "
+    else
+      prefix = "/s "
+    end
+
+    local newText = prefix .. body
+
+    -- Подставляем текст
+    editBox:SetText(newText)
+    editBox:SetCursorPosition(#newText)
+
+    -- 🔥 Авто‑закрытие окна гильдии
+    if CommunitiesFrame and CommunitiesFrame:IsShown() then
+        HideUIPanel(CommunitiesFrame)
+    end
+
+    colored("Обнаружена ссылка clubFinder, сообщение сформировано.")
+  end
 end
 
 -- ==== Установка канала ====
@@ -352,6 +397,7 @@ local function printHelp()
   colored("/gru listchannels      — список каналов")
   colored("/gru status            — показать настройки")
   colored("/gru send              — отправить сообщение")
+  colored("/gru share             — режим: нажмите 'Поделиться в чате', сообщение соберётся автоматически")
   colored("/gru help              — справка")
 end
 
@@ -395,7 +441,7 @@ SlashCmdList["GUILDRECRUITER"] = function(cmd)
     GR_Settings.windowSize = n
     _window_size = n
     colored("Размер окна рандомизации установлен на " .. n)
-      
+
   elseif cmdName=="addtmpl" then
     local text = trim(rest)
     if text=="" then return colored(MSG.tmpl_need_text) end
@@ -403,7 +449,7 @@ SlashCmdList["GUILDRECRUITER"] = function(cmd)
       if v==text then return colored(MSG.tmpl_exists) end
     end
     tinsert(GR_Settings.templates, text)
-    wipe(_queue); wipe(_recent) -- обновим очередь при следующем выборе
+    wipe(_queue); wipe(_recent)
     colored(string.format(MSG.tmpl_added, #GR_Settings.templates))
 
   elseif cmdName=="clrtmpl" then
@@ -427,7 +473,7 @@ SlashCmdList["GUILDRECRUITER"] = function(cmd)
       return colored(MSG.tmpl_edit_need)
     end
     editTemplate(idx, text)
-    wipe(_queue); 
+    wipe(_queue)
 
   elseif cmdName=="sysframe" then
     local arg = trim(rest)
@@ -449,7 +495,6 @@ SlashCmdList["GUILDRECRUITER"] = function(cmd)
         return colored(string.format(MSG.sysframe_not_found_idx, n))
       end
     else
-      -- по имени вкладки
       local found
       for i=1, NUM_CHAT_WINDOWS do
         local title = GetChatWindowInfo(i)
@@ -481,6 +526,39 @@ SlashCmdList["GUILDRECRUITER"] = function(cmd)
   elseif cmdName=="send" then
     send()
 
+elseif cmdName == "share" then
+  -- Включаем режим автосборки сообщения
+  GR_WaitForGuildLink = true
+  GR_AlreadyProcessedLink = false
+
+  -- Открываем интерфейс гильдии
+  if Communities_LoadUI then
+      Communities_LoadUI()
+  end
+  if ToggleCommunitiesFrame then
+      ToggleCommunitiesFrame()
+  end
+
+  colored("Открыто окно гильдии. Нажмите 'Пригласить участника', затем 'Поделиться в чате'.")
+
+-- Авто‑переключение чата на выбранный канал
+local ctype = GR_Settings.channelType
+if ctype == "CHANNEL" and GR_Settings.channelId then
+    ChatFrame_OpenChat("/" .. GR_Settings.channelId .. " ")
+elseif ctype == "GUILD" then
+    ChatFrame_OpenChat("/g ")
+elseif ctype == "PARTY" then
+    ChatFrame_OpenChat("/p ")
+elseif ctype == "RAID" then
+    ChatFrame_OpenChat("/raid ")
+elseif ctype == "YELL" then
+    ChatFrame_OpenChat("/y ")
+else
+    ChatFrame_OpenChat("/s ")
+end
+-- Сообщение пользователю
+colored("Открыто окно гильдии. Чат переключён на выбранный канал. Нажмите 'Пригласить участника', затем 'Поделиться в чате'.")
+
   else
     printHelp()
   end
@@ -497,6 +575,20 @@ frame:SetScript("OnEvent", function(self, event, addon)
     _window_size = GR_Settings.windowSize or 3
   elseif event == "PLAYER_LOGIN" then
     colored("GuildRecruiter загружен. Введите /gru help для справки.")
+
+    -- Хуки на чатовые EditBox для режима share
+    for i = 1, NUM_CHAT_WINDOWS do
+      local box = _G["ChatFrame"..i.."EditBox"]
+      if box then
+        box:HookScript("OnTextChanged", function(selfEdit)
+          GR_ProcessGuildLink(selfEdit)
+        end)
+        box:HookScript("OnEditFocusGained", function()
+          GR_AlreadyProcessedLink = false
+        end)
+      end
+    end
+
     self:UnregisterEvent("PLAYER_LOGIN")
   end
 end)
